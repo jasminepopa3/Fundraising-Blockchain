@@ -19,46 +19,67 @@ contract Fundraising is Ownable{
     mapping(string => uint256) public votes;
     mapping(string => address) public causeAddresses; 
     string[] public causes;
+    bool public fundraisingStopped = false;
+    bool public votingStopped = false;
 
     event DonationReceived(address indexed donor, uint256 amount);
     event VotingStarted(uint256 endTime);
     event CauseVoted(string cause, uint256 votes);
     event FundsDistributed(string cause, uint256 amount, address recipient);
 
+    modifier fundraisingActive() {
+        require(!fundraisingStopped, "Fundraising has been stopped by the owner!");
+        _;
+    }
+
+    modifier votingActive() {
+        require(!votingStopped, "Voting has been stopped by the owner!");
+        _;
+    }
+
     modifier onlyAfterFundraisingEnded() {
-        require(block.timestamp > fundraisingEnd, "Fundraising is still active!");
+        require(
+            block.timestamp > fundraisingEnd || fundraisingStopped,
+            "Fundraising is still active!"
+        );
         _;
     }
 
     modifier onlyAfterVotingEnded() {
-    require(block.timestamp > votingEndTime, "Voting is still active!");
-    _;
-}
+        require(
+            block.timestamp > votingEndTime || votingStopped,
+            "Voting is still active!"
+        );
+        _;
+    }
 
+    function stopFundraising() external onlyOwner {
+        fundraisingStopped = true;
+    }
+
+    function stopVoting() external onlyOwner onlyAfterFundraisingEnded {
+        votingStopped = true;
+    }
 
     constructor(address _tokenAddress, uint256 _duration) Ownable(msg.sender){
         tokenAddress = _tokenAddress;
         fundraisingEnd = block.timestamp + _duration;
     }
 
-    function donate() external payable {
-    require(block.timestamp < fundraisingEnd, "Fundraising ended!");
-    require(msg.value > 0, "Donation must be greater than zero!");
-    donations[msg.sender] += msg.value;
-    totalFunds += msg.value;
+    function donate() external payable fundraisingActive {
+        require(block.timestamp < fundraisingEnd, "Fundraising ended!");
+        require(msg.value > 0, "Donation must be greater than zero!");
+        donations[msg.sender] += msg.value;
+        totalFunds += msg.value;
 
-    uint256 tokensToTransfer = msg.value; // 1 token pentru fiecare wei donat
-    DonationToken(tokenAddress).transfer(msg.sender, tokensToTransfer);
+        uint256 tokensToTransfer = msg.value; // tokeni pentru fiecare suma donata
+        DonationToken(tokenAddress).transfer(msg.sender, tokensToTransfer);
 
-    emit DonationReceived(msg.sender, msg.value);
-}
+        emit DonationReceived(msg.sender, msg.value);
+    }
 
 
-    function startVoting(string[] calldata _causes, address[] calldata _addresses) 
-        external 
-        onlyOwner 
-        onlyAfterFundraisingEnded 
-    {
+    function startVoting(string[] calldata _causes, address[] calldata _addresses) external onlyOwner onlyAfterFundraisingEnded {
         require(_causes.length > 0, "No causes provided!");
         require(_causes.length == _addresses.length, "Causes and addresses length mismatch!");
 
@@ -72,12 +93,12 @@ contract Fundraising is Ownable{
             causeAddresses[_causes[i]] = _addresses[i];
         }
 
-         votingEndTime = block.timestamp + 300; // 5 minute
+         votingEndTime = block.timestamp + 600; // 10min
          emit VotingStarted(votingEndTime);
     }
 
 
-    function vote(string calldata cause) external onlyAfterFundraisingEnded{
+    function vote(string calldata cause) external onlyAfterFundraisingEnded votingActive {
         require(DonationToken(tokenAddress).balanceOf(msg.sender) > 0, "No token to vote with!");
         require(_causeExists(cause), "Cause not found!");
 
@@ -126,6 +147,12 @@ contract Fundraising is Ownable{
             total += votes[causes[i]];
         }
         return total;
+    }
+
+
+    function calculatePercentage(uint256 donation, uint256 total) public pure returns (uint256) {
+        require(total > 0, "Total must be greater than zero!");
+        return (donation * 100) / total;
     }
 
 
