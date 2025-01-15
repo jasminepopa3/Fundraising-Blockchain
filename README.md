@@ -7,7 +7,7 @@ A **decentralized fundraising application** built with Solidity smart contracts 
 ## ✨ Features  
 
 - 🪙 **Custom ERC20 Token**: Rewards donors with tokens proportional to their donations.  
-- 💰 **Transparent Fundraising**: Collect ETH donations with real-time updates.  
+- 💰 **Clear Fundraising**: Collect ETH donations with the ability to check total funds. 
 - ✅ **Community Voting**: Token-based voting system to decide fund allocation.  
 - 🔒 **Secure Fund Distribution**: Funds are distributed proportionally based on votes.  
 
